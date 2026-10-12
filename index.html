@@ -362,7 +362,7 @@ async function loadGame() {
             dataUrl: dataURL,
             frameworkUrl: framework,
             codeUrl: wasmURL,
-            streamingAssetsUrl: "StreamingAssets",
+            streamingAssetsUrl: new URL("StreamingAssets", window.location.href).href,
             companyName: "Cup Heroes",
             productName: "Cup Heroes",
             productVersion: "1.3",
