@@ -276,15 +276,15 @@
 </script>
 
 <script>
-const BUILD = "./Build/";
+const build = "./Build/";
 
-const LOADER = BUILD + "cup_heroes_CG_v1.3.loader.js";
-const FRAMEWORK = BUILD + "cup_heroes_CG_v1.3.framework.js.br";
-const DATA_PATH = BUILD + "cup_heroes_CG_v1.3.data.br";
-const WASM_PATH = BUILD + "cup_heroes_CG_v1.3.wasm.br";
+const loader = build + "cup_heroes_CG_v1.3.loader.js";
+const framework = build + "cup_heroes_CG_v1.3.framework.js.br";
+const dataPath = build + "cup_heroes_CG_v1.3.data.br";
+const wasmPath = build + "cup_heroes_CG_v1.3.wasm.br";
 
-const WASM_MIME = "application/wasm";
-const DATA_MIME = "application/octet-stream";
+const wasmMime = "application/wasm";
+const dataMime = "application/octet-stream";
 
 function setStatus(text, percent) {
     const loadingText = document.getElementById("loadingText");
@@ -332,13 +332,13 @@ function loadUnityLoader() {
             return;
         }
         const script = document.createElement("script");
-        script.src = LOADER;
+        script.src = loader;
         script.onload = function () {
             console.log("Cup Heroes Unity loader loaded.");
             resolve();
         };
         script.onerror = function () {
-            reject(new Error("Unity loader failed to load: " + LOADER));
+            reject(new Error("Unity loader failed to load: " + loader));
         };
         document.head.appendChild(script);
     });
@@ -349,8 +349,8 @@ async function loadGame() {
         setStatus("Downloading game files…", 0);
 
         const [wasmURL, dataURL] = await Promise.all([
-            mergeFiles(getParts(WASM_PATH, 0, 1), WASM_PATH, WASM_MIME),
-            mergeFiles(getParts(DATA_PATH, 0, 1), DATA_PATH, DATA_MIME)
+            mergeFiles(getParts(wasmPath, 0, 1), wasmPath, wasmMime),
+            mergeFiles(getParts(dataPath, 0, 1), dataPath, dataMime)
         ]);
 
         setStatus("Loading Unity…", 85);
@@ -358,9 +358,9 @@ async function loadGame() {
         setStatus("Starting Cup Heroes…", 90);
 
         const unityConfig = {
-            loaderUrl: LOADER,
+            loaderUrl: loader,
             dataUrl: dataURL,
-            frameworkUrl: FRAMEWORK,
+            frameworkUrl: framework,
             codeUrl: wasmURL,
             streamingAssetsUrl: "StreamingAssets",
             companyName: "Cup Heroes",
@@ -406,8 +406,8 @@ async function loadGame() {
         setStatus("Game loaded!", 100);
 
         setTimeout(function () {
-            const loader = document.getElementById("ziggyLoader");
-            if (loader) loader.remove();
+            const ziggyLoader = document.getElementById("ziggyLoader");
+            if (ziggyLoader) ziggyLoader.remove();
         }, 300);
 
     } catch (err) {
