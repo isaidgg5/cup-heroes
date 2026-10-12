@@ -124,7 +124,34 @@
         }
     };
 
-    var sdk = {
+    var dataStore = (function () {
+        var mem = {};
+        function safeLS(method, a, b) {
+            try {
+                if (method === "get") return window.localStorage.getItem(a);
+                if (method === "set") window.localStorage.setItem(a, b);
+                if (method === "del") window.localStorage.removeItem(a);
+                if (method === "clear") window.localStorage.clear();
+            } catch (e) {
+                if (method === "get") return (a in mem) ? mem[a] : null;
+                if (method === "set") mem[a] = String(b);
+                if (method === "del") delete mem[a];
+                if (method === "clear") mem = {};
+            }
+            return undefined;
+        }
+        return {
+            getItem: function (k) {
+                var v = safeLS("get", k);
+                return v === undefined ? null : v;
+            },
+            setItem: function (k, v) { safeLS("set", k, v); },
+            removeItem: function (k) { safeLS("del", k); },
+            clear: function () { safeLS("clear"); }
+        };
+    })();
+
+    var sdk = { SDK: {
         init: function (config) {
             console.log("[CrazyGames Shim] Init");
             try {
@@ -136,44 +163,93 @@
             }
             return Promise.resolve(true);
         },
-        gameplayStart: function () {
-            console.log("[CrazyGames Shim] gameplayStart");
-            return Promise.resolve(true);
+        ad: {
+            hasAdblock: function () { return Promise.resolve(false); },
+            prefetchAd: function () {},
+            requestAd: function (adType, callbacks) {
+                console.log("[CrazyGames Shim] requestAd", adType);
+                callbacks = callbacks || {};
+                try { if (typeof callbacks.adStarted === "function") callbacks.adStarted(); } catch (e) {}
+                setTimeout(function () {
+                    try { if (typeof callbacks.adFinished === "function") callbacks.adFinished(); } catch (e) {}
+                }, 100);
+                return Promise.resolve(true);
+            }
         },
-        gameplayStop: function () {
-            console.log("[CrazyGames Shim] gameplayStop");
-            return Promise.resolve(true);
+        game: {
+            gameplayStart: function () {},
+            gameplayStop: function () {},
+            happytime: function () {},
+            hideInviteButton: function () {},
+            inviteLink: function () { return ""; },
+            showInviteButton: function () { return ""; },
+            settings: {}
         },
-        happytime: function () {
-            console.log("[CrazyGames Shim] happytime");
-            return Promise.resolve(true);
+        user: {
+            addScore: function () {},
+            getUser: function () { return Promise.resolve(null); },
+            getUserToken: function () { return Promise.resolve(""); },
+            getXsollaUserToken: function () { return Promise.resolve(""); },
+            addAuthListener: function () { return function () {}; },
+            showAuthPrompt: function () { return Promise.resolve(null); },
+            showAccountLinkPrompt: function () { return Promise.resolve(null); },
+            isUserAccountAvailable: false,
+            systemInfo: {}
         },
-        requestAd: function () {
-            console.log("[CrazyGames Shim] requestAd");
-            setTimeout(function () {
-                sendToUnity("CrazyGames", "OnAdCompleted");
-                sendToUnity("CrazyGames", "OnAdFinished", "true");
-            }, 100);
-            return Promise.resolve(true);
+        data: {
+            getItem: function (k) { return dataStore.getItem(k); },
+            setItem: function (k, v) { dataStore.setItem(k, v); },
+            removeItem: function (k) { dataStore.removeItem(k); },
+            clear: function () { dataStore.clear(); },
+            syncUnityGameData: function () {}
         },
-        requestBanners: function () {
-            console.log("[CrazyGames Shim] requestBanners");
-            return Promise.resolve(true);
+        banner: {
+            requestOverlayBanners: function () {}
         },
-        requestInviteUrl: function () {
-            console.log("[CrazyGames Shim] requestInviteUrl");
-            return Promise.resolve("");
+        analytics: {
+            trackOrder: function () {}
         },
-        screenshotReceived: function () {
-            console.log("[CrazyGames Shim] screenshotReceived");
-            return Promise.resolve(true);
-        }
-    };
+        environment: "local",
+        isQaTool: false
+    } };
+
+    sdk.init = sdk.SDK.init;
+    sdk.gameplayStart = sdk.SDK.game.gameplayStart;
+    sdk.gameplayStop = sdk.SDK.game.gameplayStop;
+    sdk.happytime = sdk.SDK.game.happytime;
+    sdk.requestAd = function () { return sdk.SDK.ad.requestAd("midgame"); };
+    sdk.requestBanners = sdk.SDK.banner.requestOverlayBanners;
+    sdk.requestInviteUrl = sdk.SDK.game.inviteLink;
+    sdk.screenshotReceived = function () { return Promise.resolve(true); };
 
     window.CrazyGames = sdk;
     window.Crazygames = sdk;
     window.CrazyGamesSDK = sdk;
     window.CrazyGamesSdk = sdk;
+
+    (function () {
+        var stubInit = sdk.SDK.init;
+        function patchRealSDK() {
+            try {
+                var cg = window.CrazyGames;
+                if (!cg || !cg.SDK || cg.SDK === sdk.SDK || cg.SDK.__shimPatched) return false;
+                var realInit = cg.SDK.init.bind(cg.SDK);
+                cg.SDK.init = function (opts) {
+                    return realInit(opts).catch(function (e) {
+                        console.warn("[CrazyGames Shim] Real SDK init failed, using stub", e);
+                        return stubInit.call(sdk.SDK, opts);
+                    });
+                };
+                cg.SDK.__shimPatched = true;
+                return true;
+            } catch (e) { return false; }
+        }
+        var attempts = 0;
+        var timer = setInterval(function () {
+            attempts++;
+            if (patchRealSDK() || attempts > 100) clearInterval(timer);
+        }, 200);
+    })();
 
     document
         .getElementById("unity-canvas")
